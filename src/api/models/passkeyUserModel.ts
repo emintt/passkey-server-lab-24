@@ -1,10 +1,22 @@
-import {model, Schema} from 'mongoose';
+import {model, Schema, Types} from 'mongoose';
 import {PasskeyUserPost} from '../../types/PasskeyTypes';
 
 const PasskeyUserSchema = new Schema<PasskeyUserPost>({
-  // TODO: add userId (Number, required, unique)
-  // TODO: add email (String, required, unique)
-  // TODO: add devices (Array of ObjectIds, required, ref: 'AuthenticatorDevice')
+  userId: {
+    type: Number,
+    required: true,
+    unique: true},
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  // devices (Array of ObjectIds, required, ref: 'AuthenticatorDevice')
+  devices: {
+    type: [Types.ObjectId],
+    required: true,
+    ref: 'AuthenticatorDevice'
+  }
 });
 
 export default model<PasskeyUserPost>('PasskeyUser', PasskeyUserSchema);

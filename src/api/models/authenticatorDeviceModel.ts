@@ -3,10 +3,27 @@ import {AuthDevice} from '../../types/PasskeyTypes';
 
 const AuthenticatorDeviceSchema = new Schema<AuthDevice>({
   // TODO: add email (String, required, unique)
-  // TODO: add credentialID (String, required)
-  // TODO: add credentialPublicKey (Buffer, required)
-  // TODO: add counter (Number, required)
-  // TODO: add transports (Array of Strings, required)
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  credentialID: {
+    type: String,
+    required: true
+  },
+  credentialPublicKey: {
+    type: Buffer,
+    required: true
+  },
+  counter: {
+    type: Number,
+    required: true
+  },
+  transports: {
+    type: [String],
+    required: true
+  }
 });
 
 export default model<AuthDevice>(
