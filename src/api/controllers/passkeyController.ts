@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import CustomError from '../../classes/CustomError';
-import { User } from '@sharedTypes/DBTypes';
-import { UserResponse } from '@sharedTypes/MessageTypes'
+import { User, UserWithNoPassword } from '@sharedTypes/DBTypes';
+import { LoginResponse, UserResponse } from '@sharedTypes/MessageTypes';
 
 import { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
 import fetchData from '../../utils/fetchData';
@@ -10,6 +10,7 @@ import { Challenge, PasskeyUserGet } from '../../types/PasskeyTypes';
 import challengeModel from '../models/challengeModel';
 import passkeyUserModel from '../models/passkeyUserModel';
 import authenticatorDeviceModel from '../models/authenticatorDeviceModel';
+import jwt from 'jsonwebtoken';
 
 // check environment variables
 if (
@@ -26,7 +27,7 @@ const {
   NODE_ENV,
   RP_ID,
   AUTH_URL,
-  // JWT_SECRET,
+  JWT_SECRET,
   RP_NAME} = process.env;
 
 
@@ -226,7 +227,7 @@ const authenticationOptions = async (
 // Authentication verification and login handler
 const verifyAuthentication = async (
   req: Request<{}, {}, {email: string, authResponse: AuthenticationResponseJSON}>,
-  res: Response,
+  res: Response<LoginResponse>,
   next: NextFunction
 ) => {
   try {
@@ -252,6 +253,7 @@ const verifyAuthentication = async (
 
     // Verify authentication response
     const opts: VerifyAuthenticationResponseOpts = {
+      expectedRPID: RP_ID,
       response: authResponse,
       expectedChallenge: expectedChallenge.challenge,
       expectedOrigin:
@@ -264,7 +266,6 @@ const verifyAuthentication = async (
         counter: user.devices[0].counter,
       },
       requireUserVerification: false,
-      expectedRPID: RP_ID, // TODO: fix this
     };
 
     const verification = await verifyAuthenticationResponse(opts);
@@ -280,9 +281,35 @@ const verifyAuthentication = async (
         { counter: authenticationInfo.newCounter },
       );
     }
+
     // Clear challenge from DB after successful authentication
     await challengeModel.findByIdAndDelete({email});
-    // TODO: Generate and send JWT token
+
+    // Generate and send JWT token
+    const UserResponse = await fetchData<UserWithNoPassword>(
+      AUTH_URL + '/api/v1/users/' + user.userId
+    );
+
+    if (!UserResponse) {
+      next(new CustomError('User not found', 400));
+    }
+
+    const token = jwt.sign(
+      {
+        user_id: UserResponse.user_id,
+        level_name: UserResponse.level_name
+      },
+      JWT_SECRET,
+    );
+
+    const message: LoginResponse = {
+      message: 'Login success',
+      token,
+      user: UserResponse,
+    };
+
+    res.json(message);
+
   } catch (error) {
     next(new CustomError((error as Error).message, 500));
   }
